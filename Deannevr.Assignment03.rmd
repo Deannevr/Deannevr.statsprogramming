@@ -1,0 +1,177 @@
+---
+title: "Deannevr.Assignment02"
+author: 'Deannevr'
+date: "2024-04-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(readxl)
+library(dplyr)
+
+library(ggplot2)
+library(plotly)
+
+library(car)
+```
+
+## Read the data
+
+Read the dataset used in this assignment. Pay attention to the extension of the datafile.
+
+```{r}
+data = read_xlsx('C:/Users/Deanne/Desktop/Term 4/SUBJECTS/STATS PROGRAMMING/assignment_3_dataset.xlsx')
+```
+
+
+#### Correct coding errors
+
+If you find values in the dataset during the EDA, that are not correct based on the provided descriptions of the variables of the dataset please correct them here.
+
+```{r}
+data = data %>%
+  mutate(sex = dplyr::recode(sex, "male" = 1, "female" = 2, "woman" = 2)) %>%
+  mutate(pain = case_when(pain > 10 ~ 10, .default = pain)) %>% 
+  mutate(mindfulness = case_when(mindfulness > 6 ~ 6, .default = mindfulness)) %>%
+  mutate(cortisol = round((cortisol_serum + cortisol_saliva) / 2, digits = 2)) 
+data
+
+N = nrow(data)
+N
+```
+
+
+In order to test the more complex model for outliers and to test the assumptions first build the model.
+
+```{r}
+# data filtered to relevant variables only
+simple_data = data %>% select(sex, age, pain)
+
+# some plotting
+simple_data_plot = plot_ly(data = simple_data, x=~sex, y=~age, z=~pain, type="scatter3d") %>%
+  layout(showlegend = FALSE)
+
+simple_data_plot
+
+# create a simple linear regression model
+simple_model = lm(pain ~ sex + age, data = simple_data)
+
+summary(simple_model)
+
+```
+
+
+Check for outlier values in the model.
+
+```{r}
+# add Cook's distance
+simple_data = simple_data %>% mutate(cooks_d = cooks.distance(simple_model))
+
+# threshold for outlier detection
+threshold = 4/N
+threshold
+
+# show outliers
+simple_data %>% filter(cooks_d >= threshold)
+
+```
+
+
+Check the normality assumption.
+
+```{r}
+hist(simple_data$age)
+shapiro.test(simple_data$age) 
+
+hist(simple_data$sex)
+shapiro.test(simple_data$sex) 
+```
+
+Check the linearity assumption.
+
+```{r}
+cor(simple_data$age, simple_data$pain)
+
+cor(simple_data$sex, simple_data$pain) 
+```
+
+Check the homoscedasticty assumption (homogeneity of variance).
+
+```{r}
+ncvTest(simple_model) 
+```
+
+Multicollinearity assumption
+
+```{r}
+vif(simple_model) 
+```
+
+
+If based on the assumption tests you decide to drop a predictor variable you should do that here. Create your updated model.
+
+```{r}
+# data filtered to relevant variables only
+complex_data = data %>% select(sex, age, STAI_trait, pain_cat, mindfulness, cortisol, pain)
+
+# create a simple linear regression model
+complex_model = lm(pain ~ sex + age + STAI_trait + pain_cat + mindfulness + cortisol, data = complex_data)
+
+summary(complex_model)
+
+```
+
+
+```{r}
+complex_data = complex_data %>% mutate(cooks_d = cooks.distance(complex_model))
+
+complex_data %>% filter(cooks_d >= threshold)
+
+
+```
+
+
+Normality assumption
+
+```{r}
+hist(complex_data$STAI_trait)
+shapiro.test(complex_data$STAI_trait) 
+
+hist(complex_data$pain_cat)
+shapiro.test(complex_data$pain_cat) 
+
+hist(complex_data$mindfulness)
+shapiro.test(complex_data$mindfulness) 
+
+hist(complex_data$cortisol)
+shapiro.test(complex_data$cortisol) 
+```
+
+Linearity assumption
+
+```{r}
+cor(complex_data$STAI_trait, complex_data$pain)
+cor(complex_data$pain_cat, complex_data$pain)
+cor(complex_data$mindfulness, complex_data$pain)
+cor(complex_data$cortisol, complex_data$pain)
+```
+
+Homoscedasticty assumption (homogeneity of variance)
+
+```{r}
+ncvTest(complex_model) 
+```
+
+Multicollinearity assumption
+
+```{r}
+vif(complex_model)
+```
+
+Compare the two models.
+
+```{r}
+anova(simple_model, complex_model)
+```
