@@ -1,0 +1,95 @@
+---
+title: "DeannevrA02"
+author: "Deanne vr"
+date: "2024-04-14"
+output: html_document
+---
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
+library(dplyr) 
+library(ggplot2) 
+library(viridis)
+library(hrbrthemes)
+library(scales)
+library(RColorBrewer)
+library(forcats)
+
+```
+
+###task 1
+```{r}
+
+expeditions = read.csv('C:/Users/Deanne/Desktop/Term 4/SUBJECTS/STATS PROGRAMMING/expeditions.csv')
+
+top_15_peaks = expeditions %>%
+  count(peak_name) %>%
+  rename(peak_count = n) %>%
+  arrange(desc(peak_count)) %>%
+  top_n(15)
+
+tmp = expeditions %>%
+  select(peak_name, season) %>%
+  count(peak_name, season) %>%
+  inner_join(top_15_peaks, by = join_by(peak_name)) %>%
+  arrange(desc(peak_count)) %>%
+  select(peak_name, season, n)
+
+ tmp %>%
+  ggplot(aes(x = peak_name, y = n, fill = season)) +
+  geom_bar(position="stack", stat="identity") + 
+  labs(title="The 15 most popular peaks stacked by season of expedition", x ="", y = "Number of expeditions") + 
+  coord_flip() +
+  scale_fill_viridis_d() + 
+  theme_light() + 
+  theme(legend.position="bottom") 
+```
+
+###task 2
+```{r}
+phds = read.csv('C:/Users/Deanne/Desktop/Term 4/SUBJECTS/STATS PROGRAMMING/phd.awards.csv')
+
+tmp = phds %>%
+  select(broad_field, year, n_phds) %>%
+  mutate(n_phds = ifelse(is.na(n_phds), 0, n_phds)) %>% 
+  group_by(broad_field, year) %>% summarize(n_phds = sum(n_phds))
+
+tmp %>%
+  ggplot(aes(x = year, y = n_phds, color = broad_field)) + 
+  geom_line(size = 1.2) + 
+  labs(title="Number of awarded Ph.D.-s in the US by year", x ="", y = "") +
+  scale_x_continuous(breaks=pretty_breaks()) + 
+  scale_y_continuous(label=comma_format()) + 
+  theme_minimal() + 
+  scale_colour_brewer(palette = "Dark2")
+```
+
+###task 3
+```{r}
+
+commute = read.csv('C:/Users/Deanne/Desktop/Term 4/SUBJECTS/STATS PROGRAMMING/commute.csv')
+
+bikers = commute %>%
+  filter(mode == "Bike") %>%
+  select(state_region, state_abb, n) %>%
+  group_by(state_region, state_abb) %>% summarize(n_bike = sum(n))
+
+walker = commute %>%
+  filter(mode == "Walk") %>%
+  select(state_abb, n) %>%
+  group_by(state_abb) %>% summarize(n_walk = sum(n))
+
+tmp = bikers %>%
+  inner_join(walker, by = join_by(state_abb))
+
+tmp %>%
+  ggplot(aes(x = n_walk, y = n_bike, color = state_region, label = state_abb)) +
+  geom_point(size = 2) +
+  geom_text(color = "black") +
+  scale_x_log10(label=comma_format()) +
+  scale_y_log10(label=comma_format()) + 
+  labs(title="Number of people walking vs. biking to work in each USA state", x ="Number of people walking to work (log N)", y = "Number of people biking to work (log N)") +
+  theme_light()
+
+```
