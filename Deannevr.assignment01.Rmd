@@ -1,0 +1,164 @@
+---
+title: "Deannevr.Assignment01"
+author: "Deanne vr"
+date: "2024-03-07"
+output: html_document
+---
+
+``` {r}
+library(readr) # function(s): read_tsv
+library(data.table) # data.table 
+library(stringr) # str_replace_all
+library(tidyr) # separate_longer_delim
+library(dplyr) # arrange, count, filter, n_distinct, rename
+```
+
+``` {r}
+###################
+## 1. Read the data
+
+# read in file and convert it to data table
+data_table <- read_tsv("C:/Users/Deanne/Desktop/cocktail_data.tsv")
+data_table = data.table(data_table)
+data_table
+```
+
+``` {r}
+### 2. Transform the data table and clean the ingredient variable!
+# cleaning
+
+data_table$ingredients = tolower(data_table$ingredients) # lowercase
+
+# there are some some typos in the columns
+data_table$ingredients = str_replace_all(data_table$ingredients, "<br>", "<br/>") # lines 9 and 20
+data_table$ingredients = str_replace_all(data_table$ingredients, "cr\u008fme", "crème") # line 17
+data_table$ingredients = str_replace_all(data_table$ingredients, "<b4/>", "<br/>") # line 25
+data_table$ingredients = str_replace_all(data_table$ingredients, "marschino", "maraschino") # line 25
+data_table$ingredients = str_replace_all(data_table$ingredients, "simple<", "simple syrup<") # line 54
+
+# TIDYR CHEATSHEET
+# https://github.com/rstudio/cheatsheets/blob/main/tidyr.pdf
+data_table = separate_longer_delim(data_table, ingredients, "<br/>") # create new rows based on line breaks indicated by "<br/>" 
+data_table = separate_longer_delim(data_table, ingredients, " or ") # line 53
+
+data_table$ingredients = str_replace_all(data_table$ingredients, " \\(\\d+% abv\\)", "") # remove alcohol "(XX.XX% abv)"
+data_table$ingredients = str_replace_all(data_table$ingredients, " \\(\\d+\\.\\d+% abv\\)", "") # remove alcohol " (XX.XX% abv)"
+
+data_table$ingredients = str_replace_all(data_table$ingredients, "\\d+ dash(es)? ", "") # remove "XX dash(es) "
+
+data_table$ingredients = str_replace_all(data_table$ingredients, "\\d+ drop(s)? ", "")# remove "XX drop(s) "
+
+data_table$ingredients <- str_replace_all(data_table$ingredients, "2 drops", "")  #remove drops
+
+data_table$ingredients = str_replace_all(data_table$ingredients, "\\d+ bsp ", "") # remove "XX bsp "
+
+data_table$ingredients = str_replace_all(data_table$ingredients, "\\d+\\.\\d+ oz ", "") # remove "XX.XX oz "
+data_table$ingredients = str_replace_all(data_table$ingredients, "\\d+ \\d+/\\d+ oz ", "") # remove "XX XX/XX oz "
+data_table$ingredients = str_replace_all(data_table$ingredients, "\\d+/\\d+ oz ", "") # remove "XX XX/XX oz "
+data_table$ingredients = str_replace_all(data_table$ingredients, "\\d+ oz ", "") # remove "XX oz "
+
+data_table$ingredients <- str_replace_all(data_table$ingredients, "^\\s+|\\s+$", "") # remove trailing whitespaces
+
+data_table$ingredients
+```
+
+``` {r}
+###########################################
+## 3. All ingredients in alphabetical order
+
+sort(unique(data_table$ingredients))  # extract unique elements from the ingredients column then sort the values
+
+
+```
+
+``` {r}
+##################################
+## 4. Number of unique ingredients
+
+length(unique(data_table$ingredients))  # extract unique from the ingredients 
+
+
+```
+
+``` {r}
+######################################
+## 5. What are the top 10 ingredients?
+
+top_10_ingredients = data_table %>%
+  count(ingredients) %>%          # count the number of rows per ingredients -> results in a new column called "n"
+  arrange(desc(n))                # sort column "n" in descending order, so the most used ingredients appear on the top
+
+head(top_10_ingredients$ingredients, 10)
+
+
+```
+
+``` {r}
+######################################################
+## 6. Which cocktail(s) has/have the most ingredients?
+
+cocktail_with_most_ingredients = data_table %>%
+  count(name) %>%                         # count the number of rows per cocktail names => results in a new column called "n"
+  filter(n == max(n))                     # filter the table to only those rows which have the maximal value from "n"
+
+cocktail_with_most_ingredients = cocktail_with_most_ingredients$name  # drop count column, keep name only
+
+# [1] "Carbonated Negroni"
+```
+
+``` {r}
+#########################################################################
+## 7. How many ingredients appear in only one cocktail (rare ingredient)?
+
+rare_ingredients = data_table %>%
+  count(ingredients) %>%  # count the number of cocktails per ingredient -> results in a new column called "n"
+  filter(n == 1)          # filter the table to only those ingredients which have only one cocktail count
+
+rare_ingredients = rare_ingredients$ingredients  # drop count column, keep ingredients only
+rare_ingredients
+
+
+```
+
+``` {r}
+#########################################################################
+## 8. Which cocktail has an ingredient that is only used in one cocktail?
+
+cocktails_with_rare_ingredients = data_table %>%
+  filter(ingredients %in% rare_ingredients)
+
+cocktails_with_rare_ingredients = cocktails_with_rare_ingredients$name
+cocktails_with_rare_ingredients
+
+```
+
+``` {r}
+######################################################
+## 9. What are the cocktails without rare ingredients?
+
+cocktails_with_common_ingredients = data_table %>%
+  filter(name %notin% cocktails_with_rare_ingredients) %>%
+  distinct(name)
+
+cocktails_with_common_ingredients = cocktails_with_common_ingredients$name
+cocktails_with_common_ingredients
+
+```
+
+``` {r}
+##############################################
+## 10. Create a cheat sheet for the bartender!
+
+data_table$ingredients = str_replace_all(data_table$ingredients, " ", "_")
+data_table$mark = "X"
+
+cheatsheet = data_table %>%
+  select(name, ingredients, mark) %>%
+  pivot_wider(
+    names_from = ingredients,
+    values_from = mark
+  ) %>%
+  relocate(name, sort(names(.)))
+
+cheatsheet
+```
